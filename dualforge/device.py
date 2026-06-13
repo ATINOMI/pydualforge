@@ -7,7 +7,6 @@ os.add_dll_directory(os.path.dirname(os.path.abspath(__file__)) + "\\..")
 
 import hid
 
-
 class DualSenseDevice:
     """
     底层 HID 设备管理。
@@ -82,8 +81,9 @@ class DualSenseDevice:
     def send_report(self, data: bytes):
         if not self._device:
             raise ConnectionError("Device not connected")
-        # write() 需要在最前面加 Report ID
-        self._device.write(bytes([0x02]) + data)
+        payload = bytes([0x02]) + data
+        print(f"发送字节数: {len(payload)}")
+        self._device.write(payload)
 
     def get_feature_report(self, report_id: int, size: int) -> bytes:
         """读取 Feature Report，返回数据（含 Report ID 在字节0）。"""
