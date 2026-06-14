@@ -62,27 +62,23 @@ class DualSenseDevice:
     # ── 读写 ─────────────────────────────────────────────────
 
     def _read_loop(self):
-        """后台线程：持续读取输入报告，通知所有监听器。"""
         while self._running:
             try:
-                # 读取 64 字节（1字节 Report ID + 63字节数据）
                 data = self._device.read(INPUT_REPORT_SIZE + 1, timeout=100)
                 if data and len(data) >= INPUT_REPORT_SIZE + 1:
-                        # 去掉第一个字节（Report ID = 0x01），只传数据部分
-                        payload = bytes(data[1:])
-                        self._notify_input(payload)
+                    payload = bytes(data[1:])
+                    self._notify_input(payload)
             except Exception:
-                # 设备断开
-                self._running = False
-                self._device  = None
-                self._notify_state(False)
+                if self._running:  # ← 只有不是主动断开才报错
+                    self._running = False
+                    self._device = None
+                    self._notify_state(False)
                 break
 
     def send_report(self, data: bytes):
         if not self._device:
             raise ConnectionError("Device not connected")
         payload = bytes([0x02]) + data
-        print(f"发送字节数: {len(payload)}")
         self._device.write(payload)
 
     def get_feature_report(self, report_id: int, size: int) -> bytes:
