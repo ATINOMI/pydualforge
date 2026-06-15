@@ -64,6 +64,16 @@ ds.disconnect()
 
 ---
 
+## Examples
+
+| File | Description |
+|------|-------------|
+| `examples/test_trigger_effects.py` | Test all 21 trigger effects interactively |
+| `examples/test_led.py` | Test LED with preset / custom / rainbow modes |
+| `examples/bow_simulation.py` | Bow simulation using adaptive trigger |
+
+---
+
 ## API Reference
 
 ### Connection
@@ -81,7 +91,7 @@ ds.is_connected()  # Returns bool
 def handle(connected: bool): ...   # Triggered on connection state change
 
 @ds.on_input
-def handle(state: dict): ...       # Triggered on every input report
+def handle(state: dict): ...       # Triggered on every input report (~250Hz)
 ```
 
 ### Input State Structure
@@ -166,26 +176,66 @@ ds.stop_rumble()
 
 ### Trigger FFB
 
+21 effects in total — 7 core effects + 14 presets.
+
+#### Core Effects
+
 ```python
 from dualforge import trigger_effects
 
-# Feedback: position 0~9, strength 1~8
-ds.set_trigger_effect('right', trigger_effects.feedback(3, 5))
-
-# Weapon: start 2~7, end start+1~8, strength 1~8
-ds.set_trigger_effect('right', trigger_effects.weapon(2, 6, 8))
-
-# Vibration: position 0~9, amplitude 1~8, frequency 1~255 Hz
-ds.set_trigger_effect('right', trigger_effects.vibration(0, 5, 20))
-
-# Bow
-ds.set_trigger_effect('right', trigger_effects.bow(2, 6, 5, 4))
-
-# Machine
-ds.set_trigger_effect('right', trigger_effects.machine(0, 9, 5, 3, 30, 5))
-
 # Off
 ds.set_trigger_effect('right', trigger_effects.off())
+
+# Feedback: uniform resistance from position to end
+# position 0~9, strength 1~8
+ds.set_trigger_effect('right', trigger_effects.feedback(3, 5))
+
+# Weapon: resistance between start and end, releases after
+# start 2~7, end start+1~8, strength 1~8
+ds.set_trigger_effect('right', trigger_effects.weapon(2, 6, 8))
+
+# Vibration: vibrates from position onward
+# position 0~9, amplitude 1~8, frequency 1~255 Hz
+ds.set_trigger_effect('right', trigger_effects.vibration(0, 5, 20))
+
+# Bow: like weapon but with snap-back force
+# start 0~8, end start+1~8, strength 1~8, snap_force 1~8
+ds.set_trigger_effect('right', trigger_effects.bow(0, 7, 7, 6))
+
+# Machine: alternating dual-amplitude vibration
+# start 1~8, end start+1~9, amp_a 0~7, amp_b 0~7, frequency 1~255, period 0~255
+ds.set_trigger_effect('right', trigger_effects.machine(1, 9, 5, 3, 10, 1))
+
+# Galloping: rhythmic horse-hoof vibration
+# start 0~8, end start+1~9, first_foot 0~6, second_foot first_foot+1~7, frequency 1~40
+ds.set_trigger_effect('right', trigger_effects.galloping(0, 9, 2, 5, 10))
+```
+
+#### Preset Effects
+
+```python
+# Resistance presets (based on feedback)
+trigger_effects.normal()       # No effect
+trigger_effects.very_soft()    # Very light resistance
+trigger_effects.soft()         # Light resistance
+trigger_effects.medium()       # Medium resistance
+trigger_effects.hard()         # Strong resistance
+trigger_effects.very_hard()    # Very strong resistance
+trigger_effects.hardest()      # Maximum resistance
+trigger_effects.rigid()        # Fully locked
+
+# Weapon presets
+trigger_effects.game_cube()          # GameCube trigger feel (two-stage)
+trigger_effects.semi_automatic_gun() # Semi-auto gun feel
+trigger_effects.choppy()             # Choppy resistance (ratchet/gear feel)
+
+# Vibration presets
+trigger_effects.automatic_gun()            # Full-auto gun feel
+trigger_effects.vibrate_trigger(intensity) # Continuous vibration, intensity 1~255
+trigger_effects.vibrate_trigger_pulse()    # Short pulse vibration
+
+# Full custom (direct byte access)
+trigger_effects.custom(effect_type, params)  # effect_type + 10 raw bytes
 ```
 
 ### Audio
@@ -231,6 +281,8 @@ LightFadeAnimation.NOTHING / FADE_IN / FADE_OUT
 - Gen4 hardware (second batch) only supports symmetrical player light configurations
 - Rumble dual-flag requirement is handled internally
 - `ResetLights` is sent automatically on `connect()`, no manual handling needed
+- `machine()` start parameter must be >= 1
+- All output functions send immediately upon call, no buffering delay
 
 ---
 
