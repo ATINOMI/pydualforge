@@ -68,8 +68,9 @@ class DualSenseDevice:
                 if data and len(data) >= INPUT_REPORT_SIZE + 1:
                     payload = bytes(data[1:])
                     self._notify_input(payload)
-            except Exception:
+            except Exception as e:
                 if self._running:  # ← 只有不是主动断开才报错
+                    print(f"[DualForge] 读取线程异常: {e}")
                     self._running = False
                     self._device = None
                     self._notify_state(False)

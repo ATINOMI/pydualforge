@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dualforge import DualForge, trigger_effects
 
 # ── 参数调节 ──────────────────────────────────────────────
-STRENGTH          = 8             # 弓弦阻力（1~8）
+STRENGTH          = 6             # 弓弦阻力（1~8）
 SNAP_FORCE        = 6             # 回弹力（1~8）
 START_POS         = 0             # 阻力起始区域（0~8）
 END_POS           = 8             # 阻力结束区域

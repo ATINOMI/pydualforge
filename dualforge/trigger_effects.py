@@ -165,3 +165,37 @@ def machine(start: int, end: int,
     r[4] = frequency
     r[5] = period
     return bytes(r)
+
+def galloping(start: int, end: int,
+              first_foot: int, second_foot: int,
+              frequency: int) -> bytes:
+    """
+    马蹄振动：模拟骑马时的节奏感。
+    start:       0~8
+    end:         start+1~9
+    first_foot:  0~6  第一蹄落点
+    second_foot: first_foot+1~7  第二蹄落点
+    frequency:   1~255 Hz（建议不超过 40）
+    """
+    if not (0 <= start <= 8):
+        raise ValueError("start 必须在 0~8 之间")
+    if not (start < end <= 9):
+        raise ValueError("end 必须在 start+1~9 之间")
+    if not (0 <= first_foot <= 6):
+        raise ValueError("first_foot 必须在 0~6 之间")
+    if not (first_foot < second_foot <= 7):
+        raise ValueError("second_foot 必须在 first_foot+1~7 之间")
+    if not (1 <= frequency <= 255):
+        raise ValueError("frequency 必须在 1~255 之间")
+
+    r = _make_report()
+    zones        = (1 << start) | (1 << end)
+    time_and_ratio = ((second_foot & 0x07) << 0) \
+                   | ((first_foot  & 0x07) << 3)
+
+    r[0] = TriggerEffectType.GALLOPING
+    r[1] = (zones         >> 0) & 0xFF
+    r[2] = (zones         >> 8) & 0xFF
+    r[3] = (time_and_ratio >> 0) & 0xFF
+    r[4] = frequency
+    return bytes(r)

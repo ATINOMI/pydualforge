@@ -1,4 +1,8 @@
+import math
 from .constants import REPORT_ID_CALIB, REPORT_ID_MAC, REPORT_ID_FIRMWARE
+
+# 模块级常量，避免重复计算
+_DEG2RAD = math.pi / 180.0
 
 
 def read_calibration(device) -> dict:
@@ -6,17 +10,14 @@ def read_calibration(device) -> dict:
     读取陀螺仪/加速度计校准数据（Feature Report 0x05）。
     返回原始校准值和计算好的换算系数。
     """
-    # 40字节数据 + 1字节 Report ID
     data = device.get_feature_report(REPORT_ID_CALIB, 40)
 
     def i16(offset):
-        """读取有符号16位整数（小端序），注意含 Report ID 偏移从1开始"""
         val = data[offset] | (data[offset + 1] << 8)
         if val >= 0x8000:
             val -= 0x10000
         return val
 
-    # 原始校准值
     gyro_pitch_bias  = i16(1)
     gyro_yaw_bias    = i16(3)
     gyro_roll_bias   = i16(5)
@@ -35,16 +36,13 @@ def read_calibration(device) -> dict:
     accel_z_plus     = i16(31)
     accel_z_minus    = i16(33)
 
-    # 换算系数计算（参考 Linux hid-sony.c）
-    import math
-    DEG2RAD = math.pi / 180.0
     speed_2x = gyro_speed_plus + abs(gyro_speed_minus)
 
     def gyro_scale(plus, minus):
         denom = plus - minus
         if denom == 0:
             return 1.0
-        return speed_2x * DEG2RAD / denom
+        return speed_2x * _DEG2RAD / denom
 
     def accel_scale(plus, minus):
         denom = plus - minus
@@ -56,7 +54,6 @@ def read_calibration(device) -> dict:
         return plus - (plus - minus) / 2
 
     return {
-        # 原始值
         'raw': {
             'gyro_pitch_bias':  gyro_pitch_bias,
             'gyro_yaw_bias':    gyro_yaw_bias,
@@ -76,16 +73,14 @@ def read_calibration(device) -> dict:
             'accel_z_plus':     accel_z_plus,
             'accel_z_minus':    accel_z_minus,
         },
-        # 计算好的换算系数（raw → 物理量）
-        # 使用方式：physical = (raw - bias) * scale
         'computed': {
-            'gyro_scale_x':  gyro_scale(gyro_pitch_plus, gyro_pitch_minus),  # rad/s
+            'gyro_scale_x':  gyro_scale(gyro_pitch_plus, gyro_pitch_minus),
             'gyro_scale_y':  gyro_scale(gyro_roll_plus,  gyro_roll_minus),
             'gyro_scale_z':  gyro_scale(gyro_yaw_plus,   gyro_yaw_minus),
             'gyro_bias_x':   gyro_pitch_bias,
             'gyro_bias_y':   gyro_roll_bias,
             'gyro_bias_z':   gyro_yaw_bias,
-            'accel_scale_x': accel_scale(accel_x_plus, accel_x_minus),       # g
+            'accel_scale_x': accel_scale(accel_x_plus, accel_x_minus),
             'accel_scale_y': accel_scale(accel_y_plus, accel_y_minus),
             'accel_scale_z': accel_scale(accel_z_plus, accel_z_minus),
             'accel_bias_x':  accel_bias(accel_x_plus, accel_x_minus),
@@ -96,27 +91,22 @@ def read_calibration(device) -> dict:
 
 
 def read_mac(device) -> dict:
-    """
-    读取手柄和主机 MAC 地址（Feature Report 0x09）。
-    """
+    """读取手柄和主机 MAC 地址（Feature Report 0x09）。"""
     data = device.get_feature_report(REPORT_ID_MAC, 19)
 
     def parse_mac(start):
-        """读取6字节 MAC 地址，倒序转换为标准格式。"""
         b = [data[start + i] for i in range(6)]
         b.reverse()
         return ':'.join(f'{x:02X}' for x in b)
 
     return {
-        'controller_mac': parse_mac(1),   # 字节1~6
-        'host_mac':       parse_mac(10),  # 字节10~15
+        'controller_mac': parse_mac(1),
+        'host_mac':       parse_mac(10),
     }
 
 
 def read_firmware(device) -> dict:
-    """
-    读取固件版本和硬件信息（Feature Report 0x20）。
-    """
+    """读取固件版本和硬件信息（Feature Report 0x20）。"""
     data = device.get_feature_report(REPORT_ID_FIRMWARE, 63)
 
     def u16(offset):
@@ -135,20 +125,18 @@ def read_firmware(device) -> dict:
     hardware_info    = u32(24)
     firmware_version = u32(28)
     hw_generation    = (hardware_info >> 8) & 0xFF
-
-    # 固件版本格式：AA.BB.CCCC
-    fw_major = (firmware_version >> 24) & 0xFF
-    fw_minor = (firmware_version >> 16) & 0xFF
-    fw_patch =  firmware_version & 0xFFFF
+    fw_major         = (firmware_version >> 24) & 0xFF
+    fw_minor         = (firmware_version >> 16) & 0xFF
+    fw_patch         =  firmware_version & 0xFFFF
 
     return {
-        'build_date':       read_string(1,  11),
-        'build_time':       read_string(12, 8),
-        'fw_type':          u16(20),
-        'sw_series':        u16(22),
-        'hardware_info':    hardware_info,
-        'hw_variation':     (hardware_info >> 16) & 0xFF,
-        'hw_generation':    hw_generation,
+        'build_date':         read_string(1,  11),
+        'build_time':         read_string(12, 8),
+        'fw_type':            u16(20),
+        'sw_series':          u16(22),
+        'hardware_info':      hardware_info,
+        'hw_variation':       (hardware_info >> 16) & 0xFF,
+        'hw_generation':      hw_generation,
         'hw_generation_name': f'Gen{hw_generation}',
-        'firmware_version': f'{fw_major}.{fw_minor}.{fw_patch}',
+        'firmware_version':   f'{fw_major}.{fw_minor}.{fw_patch}',
     }
