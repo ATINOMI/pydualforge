@@ -64,6 +64,16 @@ ds.disconnect()
 
 ---
 
+## 示例程序
+
+| 文件 | 说明 |
+|------|------|
+| `examples/test_trigger_effects.py` | 交互式测试全部 21 种扳机效果 |
+| `examples/test_led.py` | LED 测试：预设 / 自定义 / 彩虹模式 |
+| `examples/bow_simulation.py` | 弓弦模拟：使用自适应扳机模拟拉弓手感 |
+
+---
+
 ## API 参考
 
 ### 连接
@@ -81,7 +91,7 @@ ds.is_connected()  # 返回 bool
 def handle(connected: bool): ...   # 连接状态变化时触发
 
 @ds.on_input
-def handle(state: dict): ...       # 每次收到手柄数据时触发
+def handle(state: dict): ...       # 每次收到手柄数据时触发（约 250Hz）
 ```
 
 ### 输入数据结构
@@ -166,26 +176,66 @@ ds.stop_rumble()
 
 ### 扳机 FFB
 
+共 21 种效果——7 种底层效果 + 14 种预设。
+
+#### 底层效果
+
 ```python
 from dualforge import trigger_effects
 
-# 阻力反馈：position 0~9，strength 1~8
+# 关闭
+ds.set_trigger_effect('right', trigger_effects.off())
+
+# 阻力反馈：从 position 区域到底部施加均匀阻力
+# position 0~9，strength 1~8
 ds.set_trigger_effect('right', trigger_effects.feedback(3, 5))
 
-# 武器触感：start 2~7，end start+1~8，strength 1~8
+# 武器触感：在起止区域之间施加阻力，通过后突然释放
+# start 2~7，end start+1~8，strength 1~8
 ds.set_trigger_effect('right', trigger_effects.weapon(2, 6, 8))
 
-# 触发器振动：position 0~9，amplitude 1~8，frequency 1~255 Hz
+# 触发器振动：从 position 区域开始振动
+# position 0~9，amplitude 1~8，frequency 1~255 Hz
 ds.set_trigger_effect('right', trigger_effects.vibration(0, 5, 20))
 
-# 弓弦张力
-ds.set_trigger_effect('right', trigger_effects.bow(2, 6, 5, 4))
+# 弓弦张力：类似 weapon，但松开后有回弹力
+# start 0~8，end start+1~8，strength 1~8，snap_force 1~8
+ds.set_trigger_effect('right', trigger_effects.bow(0, 7, 7, 6))
 
-# 机枪振动
-ds.set_trigger_effect('right', trigger_effects.machine(0, 9, 5, 3, 30, 5))
+# 机枪振动：双振幅交替振动
+# start 1~8，end start+1~9，amp_a 0~7，amp_b 0~7，frequency 1~255，period 0~255
+ds.set_trigger_effect('right', trigger_effects.machine(1, 9, 5, 3, 10, 1))
 
-# 关闭效果
-ds.set_trigger_effect('right', trigger_effects.off())
+# 马蹄振动：模拟骑马时的节奏感（frequency 建议不超过 40）
+# start 0~8，end start+1~9，first_foot 0~6，second_foot first_foot+1~7，frequency 1~40
+ds.set_trigger_effect('right', trigger_effects.galloping(0, 9, 2, 5, 10))
+```
+
+#### 预设效果
+
+```python
+# 阻力预设（基于 feedback）
+trigger_effects.normal()       # 无效果
+trigger_effects.very_soft()    # 非常轻的阻力
+trigger_effects.soft()         # 轻阻力
+trigger_effects.medium()       # 中等阻力
+trigger_effects.hard()         # 较强阻力
+trigger_effects.very_hard()    # 很强阻力
+trigger_effects.hardest()      # 最强阻力
+trigger_effects.rigid()        # 完全锁死
+
+# 武器预设
+trigger_effects.game_cube()          # GameCube 扳机手感（两段式）
+trigger_effects.semi_automatic_gun() # 半自动枪触感
+trigger_effects.choppy()             # 断断续续阻力（棘轮/齿轮感）
+
+# 振动预设
+trigger_effects.automatic_gun()            # 全自动枪触感
+trigger_effects.vibrate_trigger(intensity) # 持续振动，intensity 1~255
+trigger_effects.vibrate_trigger_pulse()    # 脉冲振动
+
+# 完全自定义（直接操作原始字节）
+trigger_effects.custom(effect_type, params)  # effect_type + 10 字节参数
 ```
 
 ### 音频
@@ -231,6 +281,8 @@ LightFadeAnimation.NOTHING / FADE_IN / FADE_OUT
 - Gen4 硬件（第二批次）的玩家指示灯只支持对称配置
 - 震动双标志位要求已在库内部处理，无需手动设置
 - `ResetLights` 在 `connect()` 时自动发送一次，无需手动处理
+- `machine()` 的 start 参数必须 >= 1
+- 所有输出函数调用即发送，无缓冲延迟
 
 ---
 
